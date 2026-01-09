@@ -1,0 +1,29 @@
+data:
+  raw_path: "data/raw/patents.csv"
+  processed_path: "data/processed/"
+  train_test_split: 0.8
+  validation_split: 0.1
+  random_seed: 42
+
+preprocessing:
+  lowercase: true
+  combine_fields: true  # abstract + main_claim
+
+tfidf:
+  max_features: 10000
+  ngram_range: [1, 2]
+  min_df: 5
+  max_df: 0.8
+  classifier: "logistic_regression"  # or "svm", "random_forest"
+
+embeddings:
+  model_name: "all-MiniLM-L6-v2"
+  batch_size: 32
+  similarity_metric: "cosine"
+  top_k: 5
+
+models:
+  tfidf_vectorizer: "models/tfidf/vectorizer.pkl"
+  tfidf_classifier: "models/tfidf/classifier.pkl"
+  embeddings_index: "models/embeddings/index.pkl"
+  embeddings_data: "models/embeddings/embeddings.npy"
