@@ -11,8 +11,6 @@ dist/
 build/
 
 # Data and models
-data/raw/*.csv
-data/processed/
 models/
 *.pkl
 *.npy

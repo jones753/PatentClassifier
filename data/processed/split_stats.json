@@ -1,0 +1,14 @@
+{
+  "total_samples": 3720,
+  "train_samples": 2604,
+  "val_samples": 372,
+  "test_samples": 744,
+  "num_classes": 5,
+  "class_counts": {
+    "G06N20/00": 700,
+    "A23L33/10": 699,
+    "B64C39/02": 699,
+    "F03D1/00": 341,
+    "E04B1/00": 165
+  }
+}

@@ -1,356 +1,177 @@
-# Patent Classifier
+# Patent Classifier project
 
-A machine learning project for classifying patents into CPC (Cooperative Patent Classification) classes and finding similar patents using two approaches:
+A machine learning project for **classifying patents into CPC classes** and **finding semantically similar patents** based on their abstracts and claims. Total dataset: 3,720 patents across 5 CPC classes. 70/10/20 train/val/test split.
 
-1. **TF-IDF + Traditional ML** (Logistic Regression, SVM, Random Forest)
-2. **Semantic Embeddings** (Sentence-Transformers + K-NN)
+This project implements two complementary approaches for patent classification:
 
-## Features
+1. **TF-IDF + Logistic Regression**: word frequency-based method for fast and interpretable classification
+2. **Semantic Embeddings + K-NN**: for capturing semantic relationships between patents
 
-- Patent classification into CPC classes
-- Semantic similarity search for patents
-- Two complementary ML approaches for comparison
-- Clean, modular, and easy-to-understand codebase
-- End-to-end training and inference pipelines
+## 1. First step: getting the data from Google BigQuery
 
-## Project Structure
+Patent data was extracted from Google's public patent dataset using BigQuery:
 
-```
-PatentClassifier/
-├── data/
-│   ├── raw/                    # Place your CSV data here
-│   └── processed/              # Auto-generated train/val/test splits
-├── models/
-│   ├── tfidf/                  # Trained TF-IDF models
-│   └── embeddings/             # Trained embedding models
-├── src/
-│   ├── data/                   # Data loading and preprocessing
-│   ├── features/               # Feature extraction (TF-IDF, embeddings)
-│   ├── models/                 # Classification models
-│   └── utils/                  # Configuration and evaluation
-├── scripts/
-│   ├── train_tfidf.py          # Train TF-IDF model
-│   ├── train_embedding.py      # Train embedding model
-│   ├── predict.py              # Classify new patents
-│   └── find_similar.py         # Find similar patents
-└── config.yaml                 # Configuration file
-```
+```sql
+-- category 1: machine learning
+(SELECT publication_number, 'G06N20/00' AS cpc_class, 
+  abstract_localized[SAFE_OFFSET(0)].text AS abstract, 
+  claims_localized[SAFE_OFFSET(0)].text AS main_claim
+ FROM `patents-public-data.patents.publications`
+ WHERE EXISTS (SELECT 1 FROM UNNEST(cpc) AS c WHERE c.code = 'G06N20/00')
+ AND ARRAY_LENGTH(claims_localized) > 0 AND claims_localized[SAFE_OFFSET(0)].text IS NOT NULL
+ LIMIT 1000)
 
-## Installation
+UNION ALL
 
-### 1. Clone or download this project
+-- category 2: Aeroplanes, helicopters
+(SELECT publication_number, 'B64C39/02' AS cpc_class, 
+  abstract_localized[SAFE_OFFSET(0)].text AS abstract, 
+  claims_localized[SAFE_OFFSET(0)].text AS main_claim
+ FROM `patents-public-data.patents.publications`
+ WHERE EXISTS (SELECT 1 FROM UNNEST(cpc) AS c WHERE c.code = 'B64C39/02')
+ AND ARRAY_LENGTH(claims_localized) > 0 AND claims_localized[SAFE_OFFSET(0)].text IS NOT NULL
+ LIMIT 1000)
 
-```bash
-cd PatentClassifier
-```
+UNION ALL
 
-### 2. Create a virtual environment (recommended)
+-- category 3: Dietary Supplements
+(SELECT publication_number, 'A23L33/10' AS cpc_class, 
+  abstract_localized[SAFE_OFFSET(0)].text AS abstract, 
+  claims_localized[SAFE_OFFSET(0)].text AS main_claim
+ FROM `patents-public-data.patents.publications`
+ WHERE EXISTS (SELECT 1 FROM UNNEST(cpc) AS c WHERE c.code = 'A23L33/10')
+ AND ARRAY_LENGTH(claims_localized) > 0 AND claims_localized[SAFE_OFFSET(0)].text IS NOT NULL
+ LIMIT 1000)
 
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+UNION ALL
 
-### 3. Install dependencies
+-- category 4: Building Construction
+(SELECT publication_number, 'E04B1/00' AS cpc_class, 
+  abstract_localized[SAFE_OFFSET(0)].text AS abstract, 
+  claims_localized[SAFE_OFFSET(0)].text AS main_claim
+ FROM `patents-public-data.patents.publications`
+ WHERE EXISTS (SELECT 1 FROM UNNEST(cpc) AS c WHERE c.code = 'E04B1/00')
+ AND ARRAY_LENGTH(claims_localized) > 0 AND claims_localized[SAFE_OFFSET(0)].text IS NOT NULL
+ LIMIT 1000)
 
-```bash
-pip install -r requirements.txt
-```
+UNION ALL
 
-## Data Preparation
-
-### CSV Format
-
-Your patent data CSV should have these columns:
-
-- `abstract`: Patent abstract text
-- `main_claim`: Patent main claim text
-- `cpc_class`: CPC classification label (e.g., "H04L29/06", "G06F21/62")
-
-Example:
-
-```csv
-abstract,main_claim,cpc_class
-"A method for secure data transmission...","A device comprising...","H04L29/06"
-"An apparatus for image processing...","A system including...","G06K9/62"
+-- category 5: Wind Turbines
+(SELECT publication_number, 'F03D1/00' AS cpc_class, 
+  abstract_localized[SAFE_OFFSET(0)].text AS abstract, 
+  claims_localized[SAFE_OFFSET(0)].text AS main_claim
+ FROM `patents-public-data.patents.publications`
+ WHERE EXISTS (SELECT 1 FROM UNNEST(cpc) AS c WHERE c.code = 'F03D1/00')
+ AND ARRAY_LENGTH(claims_localized) > 0 AND claims_localized[SAFE_OFFSET(0)].text IS NOT NULL
+ LIMIT 1000)
 ```
 
-### Place Your Data
+Plan was to select 1,000 patents from each of 5 distinct CPC classes (randomly picked), but some classes had fewer available patents meeting the criteria (some patents were missing the claims (thats why in the query we have ARRAY_LENGTH(claims_localized) > 0 AND claims_localized[SAFE_OFFSET(0)].text IS NOT NULL)).
 
-Put your CSV file in `data/raw/patents.csv`, or specify a custom path when training.
+### Dataset Overview
 
-## Quick Start
+In the end, the dataset consisted of **3,720 patents** across **5 diverse CPC classes**:
 
-### 1. Train TF-IDF Model
+| CPC Class | Category | Total Patents | Domain |
+|-----------|----------|---------------|---------|
+| G06N20/00 | Machine Learning | 1,000 | Computer Science |
+| B64C39/02 | Aeroplanes, helicopters | 1,000 | Aerospace |
+| A23L33/10 | Dietary Supplements | 1,000 | Food Science |
+| F03D1/00 | Wind Turbines | 487 | Renewable Energy |
+| E04B1/00 | Building Construction | 233 | Civil Engineering |
+
+**Data Split**:
+- **Training set**: 2,604 patents (70%)
+- **Validation set**: 372 patents (10%)
+- **Test set**: 744 patents (20%)
+
+## 2. Step, Preprocessing the data
+
+After querying the data from BigQuery, the following preprocessing steps were applied:
+
+**1. Claim Extraction (`src/data/clean_claims.py`)**:
+- Extract only the first substantive claim from each patent's claim text
+
+**2. Feature Engineering (`src/data/preprocessor.py`)**:
+- Text cleaning: Remove special characters, normalize whitespace
+- Combine cleaned abstract and first claim into single text field
+- Label encoding: Convert CPC class strings to numeric labels
+- Stratified splitting: 80% train, 10% validation, 10% test (maintains class distribution)
+
+Processed data is saved to `data/processed/` for reproducible experiments.
+
+## 3. Step, Model Training
+
+Training using 2 different approaches:
+
+### TF-IDF Approach
 
 ```bash
 python scripts/train_tfidf.py
 ```
 
-This will:
-- Load and split your data (80% train, 10% val, 10% test)
-- Preprocess text (combine abstract + main claim)
-- Extract TF-IDF features
-- Train a Logistic Regression classifier
-- Evaluate on validation set
-- Save the model to `models/tfidf/`
+**Training Pipeline**:
+1. Extract TF-IDF features (10K max features, 1-2 grams)
+2. Train Logistic Regression classifier with L2 regularization
+3. Evaluate on validation set
+4. Save model to `models/tfidf/`
 
-### 2. Train Embedding Model
+
+### Embedding Approach
 
 ```bash
 python scripts/train_embedding.py
 ```
 
-This will:
-- Load and split your data
-- Generate semantic embeddings using sentence-transformers
-- Train a K-NN classifier
-- Evaluate on validation set
-- Save the model to `models/embeddings/`
-
-### 3. Classify New Patents
-
-```bash
-python scripts/predict.py \
-    --abstract "A method for processing data using machine learning..." \
-    --main-claim "A system comprising a processor configured to..." \
-    --model both
-```
-
-Or use interactive mode:
-
-```bash
-python scripts/predict.py --interactive
-```
-
-### 4. Find Similar Patents
-
-```bash
-python scripts/find_similar.py \
-    --abstract "A method for image recognition..." \
-    --main-claim "An apparatus comprising..." \
-    --top-k 5
-```
-
-Or use interactive mode:
-
-```bash
-python scripts/find_similar.py --interactive
-```
-
-## Configuration
-
-Edit `config.yaml` to customize:
-
-### Data Settings
-```yaml
-data:
-  raw_path: "data/raw/patents.csv"
-  train_test_split: 0.8
-  validation_split: 0.1
-  random_seed: 42
-```
-
-### TF-IDF Settings
-```yaml
-tfidf:
-  max_features: 10000
-  ngram_range: [1, 2]
-  classifier: "logistic_regression"  # or "svm", "random_forest"
-```
-
-### Embedding Settings
-```yaml
-embeddings:
-  model_name: "all-MiniLM-L6-v2"  # Fast and efficient
-  batch_size: 32
-  top_k: 5
-```
-
-## Advanced Usage
-
-### Training Options
-
-#### TF-IDF Training
-
-```bash
-# Use a different classifier
-python scripts/train_tfidf.py --model-type svm
-
-# Show top features per class
-python scripts/train_tfidf.py --show-features
-
-# Evaluate on test set
-python scripts/train_tfidf.py --eval-test
-
-# Use saved data splits
-python scripts/train_tfidf.py --use-saved-splits
-```
-
-#### Embedding Training
-
-```bash
-# Use a different sentence-transformer model
-python scripts/train_embedding.py --model-name all-mpnet-base-v2
-
-# Adjust K for K-NN
-python scripts/train_embedding.py --k 10
-
-# Show confidence scores
-python scripts/train_embedding.py --show-confidence
-
-# Save embedding matrices
-python scripts/train_embedding.py --save-embeddings
-```
-
-### Prediction Options
-
-```bash
-# Use only TF-IDF model
-python scripts/predict.py --model tfidf --abstract "..." --main-claim "..."
-
-# Use only embedding model
-python scripts/predict.py --model embedding --abstract "..." --main-claim "..."
-
-# Show top-3 predictions
-python scripts/predict.py --top-k 3 --abstract "..." --main-claim "..."
-```
-
-## Model Comparison
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| **TF-IDF + ML** | Fast training/inference<br>Interpretable features<br>Works well with limited data<br>Low computational requirements | Doesn't capture semantics<br>Bag-of-words limitation<br>No similarity search |
-| **Embeddings + K-NN** | Captures semantic meaning<br>Enables similarity search<br>Better generalization<br>Transfer learning benefits | Slower inference<br>Requires more memory<br>Less interpretable |
-
-## Evaluation Metrics
-
-Both approaches provide:
-
-- **Accuracy**: Overall classification accuracy
-- **Precision/Recall**: Per-class and macro-averaged
-- **F1 Score**: Harmonic mean of precision and recall
-- **Confusion Matrix**: Detailed error analysis
-- **Classification Report**: Per-class metrics
-
-## Example Output
-
-### Training
-
-```
-TF-IDF Patent Classifier Training Pipeline
-==========================================================
-
-[1/6] Loading data...
-Loaded 5000 patents from data/raw/patents.csv
-Number of unique CPC classes: 25
-
-[2/6] Preprocessing text...
-Combined 'abstract' and 'main_claim' into 'text'
-
-[3/6] Extracting TF-IDF features...
-  max_features: 10000
-  ngram_range: (1, 2)
-  Vocabulary size: 8543
-  Feature matrix shape: (4000, 8543)
-
-[4/6] Training classifier...
-  Training samples: 4000
-  Features: 8543
-  Classes: 25
-
-[5/6] Evaluating on validation set...
-Accuracy:          0.8520
-F1 (macro):        0.8301
-```
-
-### Prediction
-
-```
-TF-IDF Model Prediction
-==========================================================
-
-Predicted CPC Class: H04L29/06
-
-Top 3 predictions:
-  1. H04L29/06          (confidence: 0.9234)
-  2. H04L29/08          (confidence: 0.0456)
-  3. G06F21/62          (confidence: 0.0189)
-```
-
-## Testing
-
-Run basic tests:
-
-```bash
-pytest tests/
-```
-
-## Requirements
-
-- Python 3.8+
-- scikit-learn >= 1.3.0
-- PyTorch >= 2.0.0
-- sentence-transformers >= 2.2.0
-- pandas >= 2.0.0
-- numpy >= 1.24.0
-
-See `requirements.txt` for full list.
-
-## Tips for Best Results
-
-### Data Quality
-- Ensure clean, consistent CPC class labels
-- Remove or fix patents with missing abstracts/claims
-- Aim for balanced class distribution (or use stratified splitting)
-- Minimum recommended: 500 patents, 10+ classes
-
-### Hyperparameter Tuning
-- For TF-IDF: Adjust `max_features`, `ngram_range`, classifier `C` parameter
-- For embeddings: Try different K values, experiment with model names
-- Use validation set for tuning, test set for final evaluation
-
-### Model Selection
-- Use TF-IDF for: Speed, interpretability, limited resources
-- Use embeddings for: Semantic search, better generalization, similarity features
-
-## Troubleshooting
-
-### "CSV file not found"
-- Ensure your CSV is at `data/raw/patents.csv`
-- Or specify custom path: `--data-path path/to/your.csv`
-
-### "Model not found"
-- Train the model first using the training scripts
-- Check that models are saved in `models/tfidf/` or `models/embeddings/`
-
-### Low accuracy
-- Check data quality and class balance
-- Increase training data size
-- Tune hyperparameters
-- Try different model types
-
-### Out of memory
-- Reduce `batch_size` in config.yaml
-- Use smaller embedding model (e.g., "all-MiniLM-L6-v2")
-- Reduce `max_features` for TF-IDF
-
-## License
-
-This project is for educational purposes.
-
-## Contributing
-
-Feel free to extend this project with:
-- Additional classification algorithms
-- Cross-validation
-- Ensemble methods
-- Fine-tuning sentence-transformers
-- Web interface
-- API endpoints
-
-## Acknowledgments
-
-- scikit-learn for traditional ML algorithms
-- sentence-transformers for semantic embeddings
-- Hugging Face for pre-trained models
+**Training Pipeline**:
+1. Generate 384-dim embeddings using `all-MiniLM-L6-v2` (sentence-transformers)
+2. Train K-Nearest Neighbors classifier (K=5)
+3. Evaluate on validation set
+4. Save model and embeddings to `models/embeddings/`
+
+## 4. Results
+### TF-IDF + Logistic Regression Performance
+
+Overall Metrics:
+
+-  Accuracy: 95.16% - Correctly classified 354 out of 372 validation patents
+-  F1-Score (macro): 94.29% - Balanced performance across all classes
+- Recall (weighted): 95.16% - High coverage of actual positive cases
+-  Precision (weighted): 95.29% - High confidence in predictions
+
+**What does these metrics mean**:
+- **Accuracy**: "How many did I get right overall?" → 95.16%
+- **Precision**: "When I say it's class X, how often am I correct?" → 95.29%
+- **Recall**: "How many of the actual class X patents did I find?" → 95.16%
+- **F1-Score**: "Balance between precision and recall" → 94.29%
+
+#### Per-Class Performance:
+
+| CPC Class | Category | Precision | Recall | F1-Score | Validation Samples |
+|-----------|----------|-----------|--------|----------|-------------------|
+| A23L33/10 | Dietary Supplements | 100% | 100% | 100% | 100 |
+| G06N20/00 | Machine Learning | 95% | 96% | 96% | 100 |
+| F03D1/00 | Wind Turbines | 96% | 92% | 94% | 49 |
+| B64C39/02 | Aeroplanes, helicopters | 90% | 94% | 92% | 100 |
+| E04B1/00 | Building Construction | 100% | 83% | 90% | 23 |
+
+**Observations**:
+- **Dietary Supplements** (A23L33/10): Perfect 100% classification, probably because it has highly distinctive technical vocabulary compared to other classes.
+- **Building Construction** (E04B1/00): Perfect precision (100%) but lower recall (83%) due to smallest sample size (only 23 validation patents)
+
+### Embedding + K-NN Performance
+#### Per-Class Performance (Embeddings):
+
+| CPC Class | Category | Precision | Recall | F1-Score | Validation Samples |
+|-----------|----------|-----------|--------|----------|-------------------|
+| A23L33/10 | Dietary Supplements | 100% | 100% | 100% | 100 |
+| G06N20/00 | Machine Learning | **98%** | **92%** | 95% | 100 |
+| F03D1/00 | Wind Turbines | **98%** | **96%** | **97%** | 49 |
+| B64C39/02 | Aeroplanes, helicopters | 90% | **97%** | **93%** | 100 |
+| E04B1/00 | Building Construction | **95%** | **91%** | **93%** | 23 |
+
+
+**Why Embeddings Perform Better**:
+- **Semantic understanding**: Captures meaning beyond exact word matches (e.g., "construct" ≈ "build")
+- **Better generalization**: Works better with smaller classes (Building Construction improved most)
+- **Transfer learning**: Pre-trained on massive text corpora
