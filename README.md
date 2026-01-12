@@ -106,7 +106,7 @@ After querying the data from BigQuery, the following preprocessing steps were ap
 - Text cleaning: Remove special characters, normalize whitespace
 - Combine cleaned abstract and first claim into single text field
 - Label encoding: Convert CPC class strings to numeric labels
-- Stratified splitting: 80% train, 10% validation, 10% test (maintains class distribution)
+- Stratified splitting: 70% train, 10% validation, 20% test (maintains class distribution)
 
 Processed data is saved to `data/processed/` for reproducible experiments.
 
