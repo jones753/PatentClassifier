@@ -7,6 +7,16 @@ This project implements two complementary approaches for patent classification:
 1. **TF-IDF + Logistic Regression**: word frequency-based method for fast and interpretable classification
 2. **Semantic Embeddings + K-NN**: for capturing semantic relationships between patents
 
+**Core ML Libraries**:
+- `scikit-learn` (1.3.0+) - TF-IDF vectorization, Logistic Regression, SVM, Random Forest, K-NN
+- `sentence-transformers` (2.2.0+) - Pre-trained semantic embeddings (all-MiniLM-L6-v2)
+- `numpy` (1.24.0+) - Numerical computations
+- `scipy` (1.11.0+) - Sparse matrix operations
+
+**Data Processing**:
+- `pandas` (2.0.0+) - Data loading and manipulation
+- `pyyaml` (6.0+) - Configuration management
+
 ## 1. First step: getting the data from Google BigQuery
 
 Patent data was extracted from Google's public patent dataset using BigQuery:
@@ -175,3 +185,11 @@ Overall Metrics:
 - **Semantic understanding**: Captures meaning beyond exact word matches (e.g., "construct" ≈ "build")
 - **Better generalization**: Works better with smaller classes (Building Construction improved most)
 - **Transfer learning**: Pre-trained on massive text corpora
+
+## What I learned / Skills demonstrated
+
+- **Machine Learning**: End-to-end ML pipeline for text classification
+- **NLP & Text Processing**: TF-IDF and semantic embeddings for patent classification
+- **Data Engineering**: SQL/BigQuery data extraction
+- **scikit-learn**
+- **Model Evaluation**: Comprehensive metrics analysis and model comparison
